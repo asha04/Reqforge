@@ -1,0 +1,55 @@
+✅  Extraction: ≥12 requirements
+✅  Extraction: TOC lines ignored
+✅  Extraction: revision history ignored
+✅  Extraction: marketing ignored
+✅  Extraction: every item has a modal verb
+✅  Conversion: every requirement uses "shall"
+✅  Conversion: no leftover must/will/should
+✅  Conversion: no double-modal bug
+✅  Conversion: original preserved
+✅  Conversion: title generated
+✅  Conversion: statement ends in period
+✅  Compound: at least one split applied
+✅  Compound: bolus delivery atomized into two reqs
+✅  Metadata: 11 mandatory fields on every requirement
+✅  Classification: types in 12-type taxonomy
+✅  Classification: confidence in [0,1]
+✅  Classification: authentication → Security
+✅  Classification: alarm/occlusion → Safety
+✅  Classification: HL7/USB → Interface
+✅  Classification: self-test/accuracy → Performance
+✅  Validation: ambiguous detected (≥2)
+✅  Validation: "fast"/"user-friendly" flagged
+✅  Validation: "robust" flagged
+✅  Validation: duplicates detected (≥2)
+✅  Validation: non-testable detected (≥1)
+✅  Hierarchy: ≥4 distinct sections
+✅  Hierarchy: no TOC artifacts in section paths
+✅  Hierarchy: Dose Delivery section present
+✅  Hierarchy: Alarms section present
+✅  Hierarchy: no orphans
+✅  Traceability: ≥4 links generated
+✅  Traceability: all link types in 8-type set
+✅  Traceability: all links scored in [0,1]
+✅  Traceability: all links carry an explanation
+✅  Traceability: low-confidence links flagged
+✅  Readiness: 10-criteria checklist on every req
+✅  Readiness: percentage in [0,100]
+✅  ReqIF: internal validator passes
+✅  ReqIF: contains all expected spec-objects
+✅  ReqIF: well-formed (no parser error)
+✅  ReqIF: has REQ-IF-HEADER
+✅  ReqIF: has DATATYPES block
+✅  ReqIF: has SPEC-OBJECT-TYPE with 5 attrs
+✅  ReqIF: spec-objects count = requirement count
+✅  ReqIF: every object references OT-REQ
+✅  ReqIF: SPEC-RELATIONS count = link count
+✅  ReqIF: all enum refs resolve
+✅  ReqIF: all hierarchy refs resolve
+✅  Human-in-the-loop: every req starts in "review"
+
+============================================================
+Result: 49/49 checks passed
+Sample run: 16 requirements, 9 traceability links, 69% Upload Ready
+ReqIF: 39509 bytes, valid=true
+============================================================
