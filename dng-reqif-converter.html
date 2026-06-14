@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReqForge — DNG Requirements Conversion & ReqIF Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#11151B; --ink-2:#1A212B; --ink-3:#252E3A;
+    --canvas:#EBEEF2; --panel:#FFFFFF; --panel-2:#F6F8FA;
+    --line:#D5DCE5; --line-soft:#E5EAF0;
+    --text:#161B22; --muted:#5E6B7B; --muted-2:#8A97A6;
+    --accent:#2F6FED; --accent-deep:#1E4FB8; --accent-soft:#E7EEFD;
+    --ready:#0F8A4C; --ready-soft:#E2F3EA;
+    --review:#B5710A; --review-soft:#FBF0DC;
+    --conflict:#CE3838; --conflict-soft:#FBE6E6;
+    --ambig:#7C4FD0; --ambig-soft:#F0E9FB;
+    --dup:#C2680C; --dup-soft:#FBEEDC;
+    --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+    --sans:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    --shadow:0 1px 2px rgba(16,22,30,.06),0 8px 24px rgba(16,22,30,.06);
+    --shadow-lg:0 12px 40px rgba(16,22,30,.16);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:var(--sans);background:var(--canvas);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;cursor:pointer}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#c2cad4;border-radius:6px;border:2px solid var(--canvas)}
+  ::-webkit-scrollbar-thumb:hover{background:#a7b2bf}
+
+  /* ---------- Layout ---------- */
+  .app{display:grid;grid-template-columns:264px 1fr;min-height:100vh}
+  .rail{background:var(--ink);color:#C9D2DD;padding:0;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  .rail-head{padding:22px 22px 18px;border-bottom:1px solid #232C37}
+  .logo{display:flex;align-items:center;gap:11px}
+  .logo-mark{width:34px;height:34px;border-radius:9px;background:linear-gradient(145deg,var(--accent),#5B8DF5);display:grid;place-items:center;box-shadow:0 4px 14px rgba(47,111,237,.45)}
+  .logo-mark svg{width:19px;height:19px}
+  .logo-name{font-weight:800;font-size:16px;letter-spacing:-.02em;color:#fff}
+  .logo-sub{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#6C7A8B;font-weight:600;margin-top:1px}
+
+  .pipeline{padding:18px 18px 10px;flex:1;overflow-y:auto}
+  .pipeline-title{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#5C6A7A;font-weight:700;margin:2px 6px 14px}
+  .stage{display:flex;gap:13px;position:relative;padding-bottom:4px}
+  .stage:last-child .stage-line{display:none}
+  .stage-dot-wrap{display:flex;flex-direction:column;align-items:center}
+  .stage-dot{width:24px;height:24px;border-radius:50%;border:2px solid #313B48;background:var(--ink-2);display:grid;place-items:center;font-size:11px;font-weight:700;color:#6C7A8B;font-family:var(--mono);flex:none;transition:.35s}
+  .stage-line{width:2px;flex:1;background:#283240;margin:3px 0;min-height:14px;transition:.35s}
+  .stage-body{padding-bottom:16px;padding-top:2px}
+  .stage-name{font-size:12.5px;font-weight:600;color:#9AA7B6;transition:.25s}
+  .stage-meta{font-size:11px;color:#5C6A7A;margin-top:1px;font-family:var(--mono)}
+  .stage.done .stage-dot{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 0 4px rgba(47,111,237,.15)}
+  .stage.done .stage-name{color:#E6ECF3}
+  .stage.done .stage-line{background:var(--accent)}
+  .stage.active .stage-dot{border-color:var(--accent);color:#fff;animation:pulse 1.4s infinite}
+  .stage.active .stage-name{color:#fff}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(47,111,237,.5)}50%{box-shadow:0 0 0 6px rgba(47,111,237,0)}}
+  .rail-foot{padding:13px 20px;border-top:1px solid #232C37;font-size:11px;color:#5C6A7A}
+
+  /* ---------- Main ---------- */
+  .main{display:flex;flex-direction:column;min-width:0}
+  .topbar{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40}
+  .topbar h1{font-size:16px;font-weight:700;letter-spacing:-.02em;margin:0}
+  .topbar .crumb{font-size:12px;color:var(--muted);margin-top:1px}
+  .top-actions{display:flex;gap:9px;align-items:center}
+
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--text);padding:8px 14px;border-radius:8px;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:7px;transition:.15s}
+  .btn:hover{background:var(--panel-2);border-color:#c3ccd7}
+  .btn:active{transform:translateY(1px)}
+  .btn svg{width:15px;height:15px}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(47,111,237,.3)}
+  .btn-primary:hover{background:var(--accent-deep);border-color:var(--accent-deep)}
+  .btn-ghost{border-color:transparent;background:transparent}
+  .btn-ghost:hover{background:var(--panel-2)}
+  .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+  .btn-sm{padding:5px 10px;font-size:12px;border-radius:7px}
+
+  .content{padding:24px 28px 60px;flex:1}
+
+  /* ---------- Setup screen ---------- */
+  .setup{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1fr 360px;gap:22px;align-items:start}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+  .card-pad{padding:22px}
+  .card h2{font-size:14px;font-weight:700;margin:0 0 3px;letter-spacing:-.01em}
+  .card .hint{font-size:12.5px;color:var(--muted);margin:0 0 16px}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:26px;text-align:center;transition:.18s;background:var(--panel-2);cursor:pointer}
+  .drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  .drop svg{width:30px;height:30px;color:var(--muted-2);margin-bottom:8px}
+  .drop b{display:block;font-size:13.5px;margin-bottom:2px}
+  .drop span{font-size:12px;color:var(--muted)}
+  textarea.spec{width:100%;min-height:230px;border:1px solid var(--line);border-radius:10px;padding:13px 14px;font-family:var(--mono);font-size:12.5px;line-height:1.6;resize:vertical;background:var(--panel-2);color:var(--text)}
+  textarea.spec:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);background:#fff}
+  .filechips{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+  .filechip{display:inline-flex;align-items:center;gap:7px;background:var(--accent-soft);color:var(--accent-deep);padding:5px 10px;border-radius:7px;font-size:12px;font-weight:600;font-family:var(--mono)}
+  .filechip button{border:none;background:none;color:var(--accent-deep);font-size:15px;line-height:1;padding:0;opacity:.6}
+  .filechip button:hover{opacity:1}
+  .or{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--muted-2);font-size:11px;font-weight:600;letter-spacing:.1em}
+  .or::before,.or::after{content:"";height:1px;flex:1;background:var(--line-soft)}
+
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:11.5px;font-weight:600;color:var(--muted);margin-bottom:5px;letter-spacing:.01em}
+  .field label .req{color:var(--conflict)}
+  .field select,.field input{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 11px;font-family:var(--sans);font-size:13px;background:var(--panel);color:var(--text)}
+  .field select:focus,.field input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .baseline-note{font-size:11.5px;color:var(--muted);margin-top:-6px;margin-bottom:12px}
+
+  /* ---------- Dashboard ---------- */
+  .metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:13px;margin-bottom:22px}
+  .metric{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 15px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .metric .mlabel{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.01em;display:flex;align-items:center;gap:6px}
+  .metric .mval{font-size:26px;font-weight:800;letter-spacing:-.03em;margin-top:5px;font-family:var(--mono)}
+  .metric .mfoot{font-size:11px;color:var(--muted-2);margin-top:1px}
+  .metric .mbar{position:absolute;left:0;top:0;bottom:0;width:3px}
+  .m-blue .mbar{background:var(--accent)} .m-green .mbar{background:var(--ready)}
+  .m-amber .mbar{background:var(--review)} .m-red .mbar{background:var(--conflict)}
+  .m-violet .mbar{background:var(--ambig)} .m-dup .mbar{background:var(--dup)}
+
+  .readiness{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin-bottom:22px;box-shadow:var(--shadow)}
+  .gauge{position:relative;width:128px;height:128px}
+  .gauge svg{transform:rotate(-90deg)}
+  .gauge .gtext{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .gauge .gnum{font-size:30px;font-weight:800;font-family:var(--mono);letter-spacing:-.04em;line-height:1}
+  .gauge .glabel{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:3px}
+  .readiness-body h3{margin:0 0 4px;font-size:15px;font-weight:700}
+  .readiness-body p{margin:0 0 12px;font-size:12.5px;color:var(--muted);max-width:560px}
+  .rstats{display:flex;gap:8px;flex-wrap:wrap}
+  .rstat{font-size:12px;padding:5px 11px;border-radius:20px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+  .rstat .dot{width:7px;height:7px;border-radius:50%}
+  .reqif-status{margin-left:auto;text-align:right}
+  .reqif-pill{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;padding:7px 13px;border-radius:8px}
+  .reqif-pill.ok{background:var(--ready-soft);color:var(--ready)}
+  .reqif-pill.warn{background:var(--review-soft);color:var(--review)}
+  .reqif-pill.none{background:var(--panel-2);color:var(--muted)}
+
+  /* ---------- Tabs ---------- */
+  .tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:18px}
+  .tab{padding:10px 16px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;gap:7px}
+  .tab:hover{color:var(--text)}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+  .tab .cnt{font-family:var(--mono);font-size:11px;background:var(--panel-2);color:var(--muted);padding:1px 6px;border-radius:10px;font-weight:700}
+  .tab.active .cnt{background:var(--accent-soft);color:var(--accent-deep)}
+
+  .filterbar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+  .search{flex:1;min-width:200px;position:relative}
+  .search input{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px 8px 34px;font-size:13px;background:var(--panel)}
+  .search input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .search svg{position:absolute;left:11px;top:9px;width:15px;height:15px;color:var(--muted-2)}
+  .chipfilter{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:7px 11px;font-size:12.5px;font-weight:600;color:var(--muted)}
+  .chipfilter.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-deep)}
+
+  /* ---------- Requirement cards ---------- */
+  .reqlist{display:flex;flex-direction:column;gap:11px}
+  .req{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;transition:.15s}
+  .req.approved{border-left:3px solid var(--ready)}
+  .req.rejected{border-left:3px solid var(--conflict);opacity:.72}
+  .req.review{border-left:3px solid var(--review)}
+  .req-head{display:flex;align-items:flex-start;gap:14px;padding:14px 16px;cursor:pointer}
+  .req-id{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent-deep);background:var(--accent-soft);padding:3px 8px;border-radius:6px;white-space:nowrap;flex:none}
+  .req-main{flex:1;min-width:0}
+  .req-title{font-weight:700;font-size:13.5px;letter-spacing:-.01em;margin-bottom:3px}
+  .req-text{font-size:13px;color:#2C3744;line-height:1.55}
+  .req-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+  .badge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:5px;letter-spacing:.02em;display:inline-flex;align-items:center;gap:4px}
+  .badge.type{background:var(--accent-soft);color:var(--accent-deep)}
+  .badge.prio-High{background:var(--conflict-soft);color:var(--conflict)}
+  .badge.prio-Medium{background:var(--review-soft);color:var(--review)}
+  .badge.prio-Low{background:var(--panel-2);color:var(--muted)}
+  .badge.flag-ambig{background:var(--ambig-soft);color:var(--ambig)}
+  .badge.flag-dup{background:var(--dup-soft);color:var(--dup)}
+  .badge.flag-conflict{background:var(--conflict-soft);color:var(--conflict)}
+  .badge.flag-compound{background:#E8EAF6;color:#4B53A8}
+  .badge.flag-test{background:#E5F0F2;color:#0E7C86}
+  .badge.flag-missing{background:#EFE7DD;color:#8A5A2B}
+  .req-conf{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:none}
+  .conf-ring{width:38px;height:38px;position:relative}
+  .conf-ring svg{transform:rotate(-90deg)}
+  .conf-ring .ctxt{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--mono);font-size:10px;font-weight:700}
+  .stat-pill{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:5px}
+  .stat-pill.approved{background:var(--ready-soft);color:var(--ready)}
+  .stat-pill.rejected{background:var(--conflict-soft);color:var(--conflict)}
+  .stat-pill.review{background:var(--review-soft);color:var(--review)}
+
+  .req-detail{border-top:1px solid var(--line-soft);padding:0 16px;max-height:0;overflow:hidden;transition:max-height .25s ease}
+  .req.open .req-detail{max-height:1400px;padding:16px}
+  .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px}
+  .compare{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:9px;padding:11px 13px}
+  .compare h5{margin:0 0 6px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .compare .orig{font-size:12.5px;color:#4A5563;font-style:italic;line-height:1.55}
+  .compare.dng{background:var(--accent-soft);border-color:#cfe0fd}
+  .compare.dng h5{color:var(--accent-deep)}
+  .compare textarea{width:100%;border:1px solid var(--line);border-radius:7px;padding:8px;font-family:var(--sans);font-size:12.5px;min-height:64px;resize:vertical;background:#fff;line-height:1.5}
+  .compare textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+  .meta-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px}
+  .meta-table td{padding:5px 10px;border-bottom:1px solid var(--line-soft)}
+  .meta-table td:first-child{color:var(--muted);font-weight:600;width:140px;white-space:nowrap}
+  .meta-table td:last-child{font-family:var(--mono);font-size:11.5px}
+  .findings{margin-bottom:14px}
+  .finding{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;padding:7px 0;border-bottom:1px dashed var(--line-soft)}
+  .finding:last-child{border-bottom:none}
+  .finding .fico{width:18px;height:18px;border-radius:5px;display:grid;place-items:center;flex:none;font-size:11px;font-weight:800;margin-top:1px}
+  .finding b{font-weight:700}
+  .detail-actions{display:flex;gap:8px;flex-wrap:wrap;padding-top:4px}
+
+  /* hierarchy */
+  .tree{font-size:13px}
+  .tnode{padding:3px 0}
+  .tsec{display:flex;align-items:center;gap:9px;padding:7px 11px;border-radius:8px;font-weight:600}
+  .tsec:hover{background:var(--panel-2)}
+  .tsec .tnum{font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--panel-2);padding:1px 6px;border-radius:5px}
+  .tchildren{margin-left:18px;border-left:2px solid var(--line-soft);padding-left:14px}
+  .treq{display:flex;align-items:center;gap:9px;padding:6px 11px;border-radius:7px;font-size:12.5px}
+  .treq:hover{background:var(--panel-2)}
+  .treq .tid{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent-deep)}
+  .treq .ttext{color:#3A4552;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .orphan-flag{font-size:10px;font-weight:700;color:var(--review);background:var(--review-soft);padding:1px 6px;border-radius:4px}
+
+  /* traceability */
+  .linkrow{display:grid;grid-template-columns:1fr auto 1fr auto;gap:14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:13px 16px;margin-bottom:9px;box-shadow:var(--shadow)}
+  .linkside .lid{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent-deep)}
+  .linkside .ltxt{font-size:12px;color:#3A4552;margin-top:2px}
+  .linktype{text-align:center}
+  .linktype .lt{font-size:11px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:4px 11px;border-radius:20px;white-space:nowrap}
+  .linktype .larrow{color:var(--muted-2);font-size:18px;margin:4px 0;line-height:1}
+  .linkexpl{grid-column:1/-1;font-size:11.5px;color:var(--muted);border-top:1px dashed var(--line-soft);padding-top:9px;margin-top:4px}
+  .linkaction{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+
+  .empty{text-align:center;padding:70px 20px;color:var(--muted)}
+  .empty svg{width:46px;height:46px;color:var(--line);margin-bottom:14px}
+  .empty h3{font-size:15px;color:var(--text);margin:0 0 5px}
+  .empty p{font-size:13px;margin:0;max-width:380px;margin-inline:auto}
+
+  /* export tab */
+  .exportgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+  .exportcard{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:18px;box-shadow:var(--shadow);display:flex;flex-direction:column}
+  .exportcard .eico{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;margin-bottom:12px}
+  .exportcard h3{margin:0 0 4px;font-size:14px;font-weight:700}
+  .exportcard p{margin:0 0 16px;font-size:12.5px;color:var(--muted);flex:1}
+  .codepeek{background:var(--ink);color:#C9D2DD;border-radius:9px;padding:13px;font-family:var(--mono);font-size:11px;line-height:1.55;max-height:240px;overflow:auto;white-space:pre;margin-top:14px;border:1px solid #232C37}
+  .codepeek .tag{color:#7FB4FF} .codepeek .attr{color:#9FE0A8} .codepeek .val{color:#E8B86D} .codepeek .com{color:#5C6A7A}
+
+  /* toast */
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:var(--shadow-lg);opacity:0;transition:.3s;z-index:100;display:flex;align-items:center;gap:9px;pointer-events:none}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast svg{width:17px;height:17px;color:#5CD89A}
+
+  /* processing overlay */
+  .overlay{position:fixed;inset:0;background:rgba(17,21,27,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:90}
+  .overlay.show{display:flex}
+  .proc{background:var(--panel);border-radius:16px;padding:30px 34px;box-shadow:var(--shadow-lg);width:380px;text-align:center}
+  .proc .spin{width:46px;height:46px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:0 auto 16px;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .proc h3{margin:0 0 4px;font-size:15px}
+  .proc .pstep{font-size:12.5px;color:var(--muted);font-family:var(--mono);min-height:18px}
+  .procbar{height:5px;background:var(--line-soft);border-radius:3px;margin-top:16px;overflow:hidden}
+  .procbar i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s;border-radius:3px}
+
+  .modules-hidden{display:none}
+  @media(max-width:1080px){
+    .app{grid-template-columns:1fr}
+    .rail{position:static;height:auto}
+    .pipeline{display:none}
+    .setup{grid-template-columns:1fr}
+    .metrics{grid-template-columns:repeat(2,1fr)}
+    .readiness{grid-template-columns:1fr}
+    .exportgrid{grid-template-columns:1fr}
+    .detail-grid{grid-template-columns:1fr}
+    .linkrow{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- RAIL -->
+  <aside class="rail">
+    <div class="rail-head">
+      <div class="logo">
+        <div class="logo-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h7"/><circle cx="18" cy="16" r="3"/><path d="M20 18l2 2"/></svg>
+        </div>
+        <div>
+          <div class="logo-name">ReqForge</div>
+          <div class="logo-sub">DNG · ReqIF Engine</div>
+        </div>
+      </div>
+    </div>
+    <div class="pipeline">
+      <div class="pipeline-title">Conversion Pipeline</div>
+      <div id="pipeline"></div>
+    </div>
+    <div class="rail-foot">Human approval required before any DNG import. No requirement is auto-created.</div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h1 id="topTitle">New Conversion</h1>
+        <div class="crumb" id="topCrumb">Configure target & upload source specifications</div>
+      </div>
+      <div class="top-actions" id="topActions">
+        <button class="btn btn-ghost btn-sm" id="resetBtn" style="display:none">Start over</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- SETUP -->
+      <section id="setupView" class="setup">
+        <div class="card card-pad">
+          <h2>Source specifications</h2>
+          <p class="hint">Upload or paste the documents to convert. <b>.txt / .md</b> parse directly in-browser. PDF/DOCX text can be pasted below — full binary parsing runs server-side in a production deployment.</p>
+          <div class="drop" id="drop">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <b>Drop files or click to browse</b>
+            <span>PDF · DOCX · DOC · TXT · ReqIF · DNG export</span>
+          </div>
+          <input type="file" id="fileInput" multiple accept=".txt,.md,.text,.pdf,.docx,.doc,.reqif,.xml,.csv" style="display:none">
+          <div class="filechips" id="fileChips"></div>
+          <div class="or">OR PASTE SPECIFICATION TEXT</div>
+          <textarea class="spec" id="specInput" placeholder="Paste specification text here. The engine detects 'shall / must / will / should' statements, reconstructs section hierarchy from headings, and ignores TOC / revision-history / boilerplate…"></textarea>
+          <div style="margin-top:12px;display:flex;gap:9px">
+            <button class="btn btn-sm" id="sampleBtn">Load sample specification</button>
+            <button class="btn btn-sm" id="clearBtn">Clear</button>
+          </div>
+        </div>
+
+        <div class="card card-pad">
+          <h2>DNG target & schema</h2>
+          <p class="hint">Where these requirements will be imported.</p>
+          <div class="field">
+            <label>Target DNG project <span class="req">*</span></label>
+            <select id="cfgProject">
+              <option>AVS — Avionics Control System</option>
+              <option>MED — Infusion Platform</option>
+              <option>RAIL — Signalling Subsystem</option>
+              <option>FIN — Payments Core</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Module / template <span class="req">*</span></label>
+            <select id="cfgModule">
+              <option>System Requirements Module</option>
+              <option>Software Requirements Module</option>
+              <option>Stakeholder Requirements Module</option>
+              <option>Interface Requirements Module</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Attribute schema <span class="req">*</span></label>
+            <select id="cfgSchema">
+              <option>Standard RM (Title, Text, Type, Priority)</option>
+              <option>ISO 26262 Safety Profile</option>
+              <option>DO-178C Avionics Profile</option>
+              <option>IEC 62304 Medical Profile</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Existing DNG baseline export (optional)</label>
+            <select id="cfgBaseline">
+              <option value="none">None — extraction only</option>
+              <option value="sample">Sample baseline (8 artifacts) — enable traceability</option>
+            </select>
+          </div>
+          <p class="baseline-note">A baseline enables cross-artifact traceability link suggestions (Derives From, Refines, Satisfies, Duplicate Of…).</p>
+          <button class="btn btn-primary" id="analyzeBtn" style="width:100%;justify-content:center;margin-top:6px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            Analyze & convert
+          </button>
+        </div>
+      </section>
+
+      <!-- RESULTS -->
+      <section id="resultsView" style="display:none">
+        <div class="metrics" id="metrics"></div>
+        <div class="readiness" id="readiness"></div>
+
+        <div class="tabs" id="tabs">
+          <button class="tab active" data-tab="review">Review workspace <span class="cnt" id="cntReview">0</span></button>
+          <button class="tab" data-tab="hierarchy">Hierarchy</button>
+          <button class="tab" data-tab="trace">Traceability <span class="cnt" id="cntTrace">0</span></button>
+          <button class="tab" data-tab="validation">Validation <span class="cnt" id="cntVal">0</span></button>
+          <button class="tab" data-tab="export">Outputs</button>
+        </div>
+
+        <div id="tab-review" class="tabpane">
+          <div class="filterbar">
+            <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="searchInput" placeholder="Search requirements, IDs, source sections…"></div>
+            <button class="chipfilter on" data-filter="all">All</button>
+            <button class="chipfilter" data-filter="review">Needs review</button>
+            <button class="chipfilter" data-filter="approved">Approved</button>
+            <button class="chipfilter" data-filter="flagged">Flagged</button>
+            <button class="btn btn-sm" id="approveAllBtn">Approve all clean</button>
+          </div>
+          <div class="reqlist" id="reqList"></div>
+        </div>
+
+        <div id="tab-hierarchy" class="tabpane modules-hidden">
+          <div class="card card-pad"><div class="tree" id="tree"></div></div>
+        </div>
+
+        <div id="tab-trace" class="tabpane modules-hidden">
+          <div id="traceList"></div>
+        </div>
+
+        <div id="tab-validation" class="tabpane modules-hidden">
+          <div id="valList"></div>
+        </div>
+
+        <div id="tab-export" class="tabpane modules-hidden">
+          <div class="exportgrid">
+            <div class="exportcard">
+              <div class="eico" style="background:var(--ready-soft);color:var(--ready)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+              <h3>ReqIF 1.0 export</h3>
+              <p>Standards-compliant ReqIF with datatypes, spec-object-type, enumerations, spec-objects, spec-relations and a nested spec-hierarchy — ready for DNG import.</p>
+              <button class="btn btn-primary btn-sm" id="dlReqif" style="justify-content:center">Download .reqif</button>
+            </div>
+            <div class="exportcard">
+              <div class="eico" style="background:var(--accent-soft);color:var(--accent-deep)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg></div>
+              <h3>Review spreadsheet (CSV)</h3>
+              <p>Every requirement with metadata, validation status, confidence scores and traceability suggestions for offline review.</p>
+              <button class="btn btn-sm" id="dlCsv" style="justify-content:center">Download .csv</button>
+            </div>
+            <div class="exportcard">
+              <div class="eico" style="background:#FBF0DC;color:var(--review)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 8h10M7 12h10M7 16h6"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg></div>
+              <h3>Structured JSON</h3>
+              <p>Full structured representation of every requirement, hierarchy node, validation finding and link — for pipelines and integrations.</p>
+              <button class="btn btn-sm" id="dlJson" style="justify-content:center">Download .json</button>
+            </div>
+            <div class="exportcard">
+              <div class="eico" style="background:var(--ambig-soft);color:var(--ambig)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 4-5"/></svg></div>
+              <h3>Executive summary</h3>
+              <p>Conversion report: documents processed, extraction totals, duplicates, conflicts, ambiguities, links and the DNG Upload Readiness Score.</p>
+              <button class="btn btn-sm" id="dlReport" style="justify-content:center">Download report</button>
+            </div>
+          </div>
+          <div class="card card-pad" style="margin-top:14px">
+            <h2>ReqIF preview</h2>
+            <p class="hint">Generated on export. Validated for well-formedness, attribute-reference resolution and schema mapping.</p>
+            <div class="codepeek" id="reqifPeek">Run analysis to generate ReqIF.</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="proc">
+    <div class="spin"></div>
+    <h3>Converting specifications</h3>
+    <div class="pstep" id="procStep">Reading documents…</div>
+    <div class="procbar"><i id="procBar"></i></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="20 6 9 17 4 12"/></svg><span id="toastMsg"></span></div>
+
+<script>
+/* ============================================================
+   ReqForge — DNG Requirements Conversion & ReqIF Generator
+   Fully client-side. Heuristic NLP extraction + ReqIF emit.
+   ============================================================ */
+
+const STAGES = [
+  {k:'read',  n:'Read documents',     m:'parse + page map'},
+  {k:'extract',n:'Extract requirements',m:'modal / imperative'},
+  {k:'normalize',n:'Normalize to DNG', m:'atomic · shall-form'},
+  {k:'classify',n:'Classify & score',  m:'12 types'},
+  {k:'hierarchy',n:'Build hierarchy',  m:'parent / orphan'},
+  {k:'validate',n:'Quality validation',m:'ambiguity · dup · conflict'},
+  {k:'trace', n:'Traceability',        m:'baseline compare'},
+  {k:'reqif', n:'Generate & validate ReqIF',m:'schema check'},
+];
+
+const State = {
+  files:[], reqs:[], hierarchy:[], links:[], baseline:[],
+  cfg:{}, reqifXml:'', reqifValid:null, docNames:[], tab:'review',
+  filter:'all', search:''
+};
+
+/* ---------- small utils ---------- */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const uid=p=>p+'-'+Math.random().toString(36).slice(2,10);
+const nowISO=()=>new Date().toISOString().replace(/\.\d+Z$/,'Z');
+function toast(m){const t=$('#toast');$('#toastMsg').textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
+
+/* ---------- pipeline render ---------- */
+function renderPipeline(activeIdx){
+  $('#pipeline').innerHTML = STAGES.map((s,i)=>{
+    const cls = i<activeIdx?'done':(i===activeIdx?'active':'');
+    return `<div class="stage ${cls}">
+      <div class="stage-dot-wrap"><div class="stage-dot">${i<activeIdx?'✓':i+1}</div><div class="stage-line"></div></div>
+      <div class="stage-body"><div class="stage-name">${s.n}</div><div class="stage-meta">${s.m}</div></div>
+    </div>`;
+  }).join('');
+}
+renderPipeline(-1);
+
+/* ============================================================
+   SAMPLE DATA
+   ============================================================ */
+const SAMPLE_SPEC = `# Infusion Pump System Specification
+Document No: MED-SRS-0042  Rev: C
+
+## 1. Table of Contents
+1. Introduction ...................... 3
+2. Functional Requirements .......... 5
+3. Performance .......................9
+
+## 2. Revision History
+Rev A — Initial release — 2023-01-10
+Rev B — Added alarm requirements — 2023-06-22
+Rev C — Security update — 2024-02-15
+
+## 3. Introduction
+The Acme Infusion Platform is the market-leading, best-in-class solution trusted by hospitals worldwide. This document describes the system requirements.
+
+## 4. Functional Requirements
+### 4.1 Dose Delivery
+The system shall deliver medication at a programmed rate between 0.1 and 999 mL/h.
+The pump must support bolus delivery and shall log every bolus event to the audit trail.
+The device shall be fast and user-friendly for clinical staff.
+When the reservoir volume falls below 5 mL, the system shall trigger a low-reservoir alarm.
+
+### 4.2 Alarms
+The system shall raise an audible alarm within 2 seconds of detecting an occlusion.
+The system will display all active alarms on the primary screen.
+The pump shall be robust against electrical noise.
+
+## 5. Performance
+The system shall complete startup self-test in under 8 seconds.
+The system shall deliver medication at an accuracy of plus or minus 5 percent.
+The device should respond to user input quickly.
+
+## 6. Security
+The system shall authenticate every clinician before allowing rate changes.
+The system shall encrypt all patient data at rest using AES-256.
+The system shall authenticate every clinician before changing the infusion rate.
+
+## 7. Interface
+The system shall expose an HL7 interface for the hospital information system.
+The system shall provide a USB-C port for service access.`;
+
+const SAMPLE_BASELINE = [
+  {id:'AVS-1201', text:'The system shall authenticate users prior to configuration changes.', type:'Security'},
+  {id:'AVS-1202', text:'The system shall encrypt patient data at rest.', type:'Security'},
+  {id:'AVS-0440', text:'The pump shall detect occlusions and alert the operator.', type:'Safety'},
+  {id:'AVS-0441', text:'The system shall provide audible alarms for fault conditions.', type:'Safety'},
+  {id:'AVS-0310', text:'The system shall deliver medication at a configurable rate.', type:'Functional'},
+  {id:'AVS-0701', text:'The system shall provide an HL7 interface to external systems.', type:'Interface'},
+  {id:'AVS-0902', text:'The system shall complete power-on self test before operation.', type:'Performance'},
+  {id:'AVS-0150', text:'The system shall log all clinically significant events.', type:'Data'},
+];
+
+/* ============================================================
+   1. PARSE  — split into structured lines with sections + pages
+   ============================================================ */
+const IGNORE_SECTION = /(table of contents|revision history|change log|document control|copyright|legal notice|disclaimer|trademark|about (the|this) (company|document))/i;
+const MARKETING = /(market-leading|best-in-class|world-class|trusted by|cutting-edge|state of the art|industry-leading|seamless(ly)?|game.?chang|revolutionary)/i;
+const TOC_LINE = /\.{4,}\s*\d+\s*$/; // dotted leaders
+
+function parseDocument(text, docName){
+  const out=[]; let page=1; let path=[]; // path = [{level, num, title}]
+  const lines = text.replace(/\r/g,'').split('\n');
+  for(let raw of lines){
+    const line = raw.trimEnd();
+    if(/\f/.test(raw)){page++;}
+    if(/^\s*page\s+\d+/i.test(line) || /^\s*-\s*\d+\s*-\s*$/.test(line)){page++; continue;}
+    if(!line.trim()) continue;
+
+    // heading detection
+    let h = detectHeading(line);
+    if(h){
+      // pop deeper-or-equal levels
+      while(path.length && path[path.length-1].level >= h.level) path.pop();
+      path.push({level:h.level, num:h.num, title:h.title});
+      out.push({kind:'heading', level:h.level, num:h.num, title:h.title,
+                path:path.map(p=>({...p})), page, doc:docName});
+      continue;
+    }
+    // body
+    if(TOC_LINE.test(line)) continue;
+    out.push({kind:'body', text:line, path:path.map(p=>({...p})), page, doc:docName});
+  }
+  return out;
+}
+
+function detectHeading(line){
+  let m;
+  // Markdown heading
+  if(m=line.match(/^(#{1,6})\s+(.*)$/)){
+    let t=m[2].trim(); let num=null;
+    const nm=t.match(/^(\d+(\.\d+)*)[.)]?\s+(.*)$/);
+    if(nm){num=nm[1]; t=nm[3];}
+    // Drop TOC-style entries: "Introduction ........ 3"
+    if(TOC_LINE.test(t)) return null;
+    return {level:m[1].length, num, title:t.replace(/\s*\.{3,}\s*\d+\s*$/,'').trim()};
+  }
+  // Numbered heading like "4.1 Dose Delivery"
+  if(m=line.match(/^(\d+(\.\d+)*)[.)]?\s+([A-Z].{1,80})$/)){
+    if(/(shall|must|will|should)/i.test(line)) return null; // it's a requirement
+    if(TOC_LINE.test(line)) return null;                    // it's a TOC entry
+    return {level:m[1].split('.').length, num:m[1], title:m[3].trim()};
+  }
+  // ALL-CAPS short heading
+  if(line.length<=58 && /^[A-Z0-9][A-Z0-9 \-&/]+$/.test(line) && !/[.:;]$/.test(line) && line.split(' ').length<=8){
+    return {level:1, num:null, title:line.replace(/\s+/g,' ').trim()};
+  }
+  return null;
+}
+
+/* ============================================================
+   2. EXTRACT requirement candidates
+   ============================================================ */
+const MODAL = /\b(shall|must|will|should|is required to|are required to|needs to|has to|is to)\b/i;
+
+function sectionIgnored(path){ return path.some(p=>IGNORE_SECTION.test(p.title||'')); }
+
+function extractCandidates(struct){
+  const cands=[];
+  for(const node of struct){
+    if(node.kind!=='heading' && node.kind!=='body') continue;
+    if(node.kind==='heading') continue;
+    if(sectionIgnored(node.path)) continue;
+    if(MARKETING.test(node.text) && !MODAL.test(node.text)) continue;
+
+    // split into sentences
+    const sentences = splitSentences(node.text);
+    for(const s of sentences){
+      if(!MODAL.test(s)) continue;            // require a requirement-like modal
+      if(s.split(/\s+/).length < 4) continue; // too short
+      cands.push({raw:s.trim(), node});
+    }
+  }
+  return cands;
+}
+function splitSentences(t){
+  return t.replace(/\s+/g,' ')
+          .split(/(?<=[.;])\s+(?=[A-Z(])/)
+          .map(s=>s.trim()).filter(Boolean);
+}
+
+/* ============================================================
+   3. NORMALIZE — atomic split + shall-form rewrite
+   ============================================================ */
+function normalize(cands){
+  const reqs=[]; let counter=1;
+  for(const c of cands){
+    const parts = splitCompound(c.raw);
+    const wasCompound = parts.length>1;
+    for(const part of parts){
+      const {text, rewritten} = toDngText(part);
+      const node=c.node;
+      const sectionPath = node.path.map(p=>(p.num?p.num+' ':'')+p.title).join(' › ');
+      const id='REQ-'+String(counter++).padStart(4,'0');
+      reqs.push({
+        id,
+        original:part.trim(),
+        text,
+        rewritten,
+        title:makeTitle(text),
+        doc:node.doc,
+        section: node.path.length? node.path[node.path.length-1].title : '(root)',
+        sectionPath: sectionPath || '(root)',
+        sectionNum: node.path.length? node.path[node.path.length-1].num : null,
+        page:node.page,
+        type:null, typeConf:0, priority:null, confidence:0.9,
+        parentId:null, status:'review', notes:'',
+        flags:{ambiguous:[],nonTestable:false,compound:wasCompound,missing:[],duplicateOf:[],conflictsWith:[]},
+        links:[], ready:false, readyChecklist:{}, _path:node.path
+      });
+    }
+  }
+  return reqs;
+}
+
+function splitCompound(s){
+  let parts=[s];
+  parts = parts.flatMap(p=> p.includes(';') ? p.split(/;\s+/) : [p]);
+  parts = parts.flatMap(p=>{
+    // Subject = words at start of clause UP TO (but not including) the first modal verb.
+    // e.g. "The pump must support …" → subject "The pump"
+    const subjMatch = p.match(/^((?:the\s+)?\w+(?:\s+\w+){0,2}?)(?=\s+(?:shall|must|will|should)\b)/i);
+    const subj = subjMatch ? subjMatch[0].trim() : 'The system';
+    const re = /\s+and\s+(?=(?:shall|must|will|should)\b)/i;
+    if(!re.test(p)) return [p];
+    const tokens = p.split(re);
+    // Each follow-on chunk already starts with a modal — prepend subject only.
+    return tokens.map((tk,i)=> i===0 ? tk : (subj + ' ' + tk));
+  });
+  return parts.map(x=>x.trim()).filter(x=>x.length>3);
+}
+
+function toDngText(s){
+  let t=s.trim();
+  const rewritten = /\b(must|will|is required to|are required to|needs to|has to|is to)\b/i.test(t) ||
+                    /\bshould\b/i.test(t);
+  t=t.replace(/\bis required to\b/gi,'shall').replace(/\bare required to\b/gi,'shall')
+     .replace(/\bneeds to\b/gi,'shall').replace(/\bhas to\b/gi,'shall')
+     .replace(/\bis to\b/gi,'shall')
+     .replace(/\bmust\b/gi,'shall').replace(/\bwill\b/gi,'shall')
+     .replace(/\bshould\b/gi,'shall');
+  // ensure subject
+  if(!/^(the|a|an|each|all|every|when|if|upon|while|during)\b/i.test(t)){
+    t='The system '+t.charAt(0).toLowerCase()+t.slice(1);
+  }
+  t=t.charAt(0).toUpperCase()+t.slice(1);
+  if(!/[.]$/.test(t)) t+='.';
+  return {text:t, rewritten};
+}
+
+function makeTitle(text){
+  let t=text.replace(/^(the\s+\w+(\s+\w+)?\s+shall\s+)/i,'')
+            .replace(/^(when|if|upon|while|during)\b.*?,\s*/i,'')
+            .replace(/[.]$/,'');
+  const words=t.split(/\s+/).slice(0,7).join(' ');
+  return words.charAt(0).toUpperCase()+words.slice(1);
+}
+
+/* ============================================================
+   4. CLASSIFY + priority + confidence
+   ============================================================ */
+const TYPE_RULES=[
+  ['Performance', /\b(within|under|less than|response time|latency|throughput|seconds?|ms|millisecond|accuracy|percent|%|startup|self-test|per (second|hour)|rate of)\b/i, 2],
+  ['Security',    /\b(authenticate|authoriz|encrypt|password|credential|access control|aes|tls|certificate|login|role-based|tamper)\b/i, 3],
+  ['Safety',      /\b(alarm|hazard|safety|fail-safe|occlusion|emergency|shutdown|interlock|fault|protect against)\b/i, 3],
+  ['Interface',   /\b(interface|api|protocol|hl7|usb|port|connector|expose|integrate with|external system)\b/i, 2],
+  ['Data',        /\b(log|record|store|database|audit trail|retain|data at rest|persist|archive)\b/i, 2],
+  ['Compliance',  /\b(comply|compliance|regulation|standard|iso |iec |do-178|26262|62304|fda|conform)\b/i, 3],
+  ['Operational', /\b(operator|maintenance|service|backup|restore|deploy|monitor|administrat)\b/i, 1],
+  ['Constraint',  /\b(shall not|must not|limited to|no more than|constrained|only)\b/i, 2],
+  ['Non-Functional',/\b(usability|reliability|availability|maintainab|scalab|robust|user-friendly|efficient)\b/i, 1],
+  ['Functional',  /\b(shall (deliver|provide|display|support|raise|trigger|generate|allow|enable|calculate|process))\b/i, 1],
+];
+function classify(r){
+  let best={type:'Functional', score:0};
+  for(const [type,re,w] of TYPE_RULES){
+    const matches=(r.text.match(new RegExp(re,'gi'))||[]).length;
+    const sc=matches*w;
+    if(sc>best.score) best={type,score:sc};
+  }
+  r.type=best.type;
+  r.typeConf=best.score===0?0.55:Math.min(0.95,0.6+best.score*0.12);
+
+  // priority
+  if(/\b(shall not|must not|safety|hazard|critical|alarm|authenticate|encrypt|emergency)\b/i.test(r.text)) r.priority='High';
+  else if(r.rewritten && /\bshould\b/i.test(r.original)) r.priority='Low';
+  else r.priority='Medium';
+
+  // overall confidence: clear "shall" boosts, rewrite lowers, ambiguity lowers
+  let conf=0.78;
+  if(/\bshall\b/i.test(r.original)) conf+=0.12;
+  if(r.rewritten) conf-=0.06;
+  if(r.flags.compound) conf-=0.08;
+  r.confidence=Math.max(0.4,Math.min(0.98,conf));
+}
+
+/* ============================================================
+   5. HIERARCHY
+   ============================================================ */
+function buildHierarchy(reqs){
+  // group by section path; build nested section tree
+  const root={title:'(document)', num:null, children:new Map(), reqs:[]};
+  for(const r of reqs){
+    let cur=root;
+    if(!r._path.length){ root.reqs.push(r); r.parentId=null; continue; }
+    for(const seg of r._path){
+      const key=(seg.num||'')+'|'+seg.title;
+      if(!cur.children.has(key)) cur.children.set(key,{title:seg.title,num:seg.num,children:new Map(),reqs:[]});
+      cur=cur.children.get(key);
+    }
+    cur.reqs.push(r);
+    r.parentSection=(r._path[r._path.length-1].num?r._path[r._path.length-1].num+' ':'')+r._path[r._path.length-1].title;
+    r.parentId = r._path.length>0 ? 'SEC:'+r.sectionPath : null;
+  }
+  // orphans = at document root with no section
+  root.reqs.forEach(r=>{r.flags.orphan=true;});
+  return root;
+}
+
+/* ============================================================
+   6. VALIDATION
+   ============================================================ */
+const AMBIG_WORDS=['fast','quickly','quick','user-friendly','efficient','efficiently','robust','appropriate','appropriately','easy','easily','minimal','adequate','sufficient','reasonable','approximately','as needed','etc','flexible','intuitive','seamless','optimal','better','improved','some','several','various','state of the art'];
+const MEASURABLE=/\b(\d+(\.\d+)?\s?(ms|s|sec|seconds?|min|minutes?|hours?|%|percent|mb|gb|kb|hz|ml\/h|ml|mm|cm|m|kg|°c|bit|aes-\d+))|\bwithin\s+\d|plus or minus|±|less than \d|no more than \d|at least \d|between \d/i;
+
+function validate(reqs){
+  // per-req intrinsic checks
+  for(const r of reqs){
+    r.flags.ambiguous=[];
+    const low=' '+r.text.toLowerCase()+' ';
+    for(const w of AMBIG_WORDS){ if(low.includes(' '+w+' ')) r.flags.ambiguous.push(w); }
+    // non-testable: has a quality/perf claim w/o measurable criteria
+    const perfish=/\b(fast|quick|efficient|response|performance|accura|robust|reliab|quickly|user-friendly)\b/i.test(r.text);
+    r.flags.nonTestable = (perfish || r.type==='Performance' || r.flags.ambiguous.length>0) && !MEASURABLE.test(r.text);
+    // missing info
+    r.flags.missing=[];
+    if(!/^(the|a|an|each|all|every)\s+\w+/i.test(r.text)) r.flags.missing.push('actor');
+    if((r.type==='Performance'||perfish) && !MEASURABLE.test(r.text)) r.flags.missing.push('acceptance criteria');
+    if(/\b(alarm|trigger|raise|switch|enter|transition)\b/i.test(r.text) && !/\b(when|if|upon|on|while|during|after|before)\b/i.test(r.text)) r.flags.missing.push('condition');
+  }
+  // duplicates
+  detectDuplicates(reqs);
+  // conflicts
+  detectConflicts(reqs);
+}
+
+function normTokens(t){return t.toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(w=>w.length>2 && !['the','shall','and','for','with','that','this','all','any'].includes(w));}
+function jaccard(a,b){const A=new Set(a),B=new Set(b);let i=0;A.forEach(x=>{if(B.has(x))i++;});return i/(A.size+B.size-i||1);}
+
+function detectDuplicates(reqs){
+  for(let i=0;i<reqs.length;i++){
+    for(let j=i+1;j<reqs.length;j++){
+      const a=reqs[i],b=reqs[j];
+      const na=a.text.toLowerCase().replace(/[^a-z0-9]/g,''), nb=b.text.toLowerCase().replace(/[^a-z0-9]/g,'');
+      const sim=jaccard(normTokens(a.text),normTokens(b.text));
+      let kind=null;
+      if(na===nb) kind='exact';
+      else if(sim>=0.82) kind='near';
+      else if(sim>=0.6) kind='semantic';
+      if(kind){
+        a.flags.duplicateOf.push({id:b.id,kind,sim:+sim.toFixed(2)});
+        b.flags.duplicateOf.push({id:a.id,kind,sim:+sim.toFixed(2)});
+      }
+    }
+  }
+}
+function detectConflicts(reqs){
+  for(let i=0;i<reqs.length;i++){
+    for(let j=i+1;j<reqs.length;j++){
+      const a=reqs[i],b=reqs[j];
+      const sim=jaccard(normTokens(a.text),normTokens(b.text));
+      if(sim<0.3) continue;
+      // negation conflict
+      const aNeg=/\bshall not\b/i.test(a.text), bNeg=/\bshall not\b/i.test(b.text);
+      if(aNeg!==bNeg && sim>0.5){ pushConflict(a,b,'contradictory directive (shall vs shall-not)'); continue; }
+      // numeric limit conflict (same units, different numbers)
+      const an=numUnit(a.text), bn=numUnit(b.text);
+      if(an && bn && an.unit===bn.unit && an.val!==bn.val && sim>0.45){
+        pushConflict(a,b,`conflicting limit ${an.val}${an.unit} vs ${bn.val}${bn.unit}`);
+      }
+    }
+  }
+}
+function numUnit(t){const m=t.match(/(\d+(?:\.\d+)?)\s?(ms|s|seconds?|%|percent|ml\/h|ml|mb|gb|hz)/i);return m?{val:m[1],unit:m[2].toLowerCase()}:null;}
+function pushConflict(a,b,why){a.flags.conflictsWith.push({id:b.id,why});b.flags.conflictsWith.push({id:a.id,why});}
+
+/* ============================================================
+   7. TRACEABILITY (against baseline)
+   ============================================================ */
+const LINK_TYPES=['Derives From','Refines','Satisfies','Traces To','Depends On','Conflicts With','Duplicate Of','Related To'];
+function buildTraceability(reqs, baseline){
+  const links=[];
+  if(!baseline.length) return links;
+  for(const r of reqs){
+    let best=null;
+    for(const base of baseline){
+      const sim=jaccard(normTokens(r.text),normTokens(base.text));
+      if(!best || sim>best.sim) best={base,sim};
+    }
+    if(!best || best.sim<0.18) continue;
+    let type, why, conf=Math.min(0.96,best.sim+0.25);
+    const s=best.sim;
+    if(s>=0.8){type='Duplicate Of'; why='Near-identical wording to an existing baseline artifact.';}
+    else if(s>=0.55){type='Refines'; why='Adds specificity to a broader baseline requirement.';}
+    else if(r.type===best.base.type && s>=0.35){type='Satisfies'; why=`Same domain (${r.type}) — implementation appears to satisfy the baseline intent.`;}
+    else if(s>=0.3){type='Derives From'; why='Decomposed from a higher-level baseline requirement.';}
+    else {type='Related To'; why='Topical overlap with a baseline artifact.';}
+    if(/\bshall not\b/i.test(r.text)!==/\bshall not\b/i.test(best.base.text) && s>0.5){type='Conflicts With'; why='Directive appears to contradict the baseline.'; conf=Math.max(conf,0.7);}
+    const link={id:uid('lnk'),source:r.id,sourceText:r.text,target:best.base.id,targetText:best.base.text,type,confidence:+conf.toFixed(2),explanation:why,status:conf<0.6?'review':'suggested',lowConf:conf<0.6};
+    links.push(link);
+    r.links.push(link);
+  }
+  return links;
+}
+
+/* ============================================================
+   8. READINESS + ReqIF
+   ============================================================ */
+function computeReadiness(reqs){
+  for(const r of reqs){
+    const c={};
+    c.statement = r.text.length>10;
+    c.title = !!r.title && r.title.length>2;
+    c.validType = LINK_TYPES && !!r.type;
+    c.mandatoryAttrs = !!r.type && !!r.priority && !!r.doc;
+    c.sourceTrace = !!r.doc && (!!r.sectionPath) && !!r.page;
+    c.validHierarchy = !r.flags.orphan;
+    c.noConflicts = r.flags.conflictsWith.length===0 || r.status==='approved';
+    const unresolvedDup=r.flags.duplicateOf.some(d=>d.kind==='exact'||d.kind==='near');
+    c.noDuplicates = !unresolvedDup || r.status==='approved';
+    c.schemaValid = c.mandatoryAttrs && c.statement;
+    c.reqifValid = true;
+    c.notRejected = r.status!=='rejected';
+    c.qualityOk = r.flags.ambiguous.length===0 && !r.flags.nonTestable && r.flags.missing.length===0 || r.status==='approved';
+    r.readyChecklist=c;
+    r.ready = Object.values(c).every(Boolean);
+  }
+}
+
+function generateReqIF(reqs, cfg){
+  const approved = reqs.filter(r=>r.status!=='rejected');
+  const lc=nowISO();
+  const TYPES=['Functional','Non-Functional','Performance','Interface','Security','Safety','Compliance','Data','Operational','Constraint','Assumption','Open Question'];
+  const PRIOS=['High','Medium','Low'];
+  const evType=t=>'EV-TYPE-'+t.replace(/[^A-Za-z]/g,'').toUpperCase();
+  const evPrio=p=>'EV-PRIO-'+p.toUpperCase();
+
+  const enumVals=(arr,pre)=>arr.map((v,i)=>
+`          <ENUM-VALUE IDENTIFIER="${pre(v)}" LONG-NAME="${esc(v)}" LAST-CHANGE="${lc}">
+            <PROPERTIES><EMBEDDED-VALUE KEY="${i}" OTHER-CONTENT="${esc(v)}"/></PROPERTIES>
+          </ENUM-VALUE>`).join('\n');
+
+  const objects = approved.map(r=>{
+    return `      <SPEC-OBJECT IDENTIFIER="${r.id}" LONG-NAME="${esc(r.title)}" LAST-CHANGE="${lc}">
+        <VALUES>
+          <ATTRIBUTE-VALUE-STRING THE-VALUE="${esc(r.title)}">
+            <DEFINITION><ATTRIBUTE-DEFINITION-STRING-REF>AD-TITLE</ATTRIBUTE-DEFINITION-STRING-REF></DEFINITION>
+          </ATTRIBUTE-VALUE-STRING>
+          <ATTRIBUTE-VALUE-XHTML>
+            <DEFINITION><ATTRIBUTE-DEFINITION-XHTML-REF>AD-TEXT</ATTRIBUTE-DEFINITION-XHTML-REF></DEFINITION>
+            <THE-VALUE><xhtml:div>${esc(r.text)}</xhtml:div></THE-VALUE>
+          </ATTRIBUTE-VALUE-XHTML>
+          <ATTRIBUTE-VALUE-ENUMERATION>
+            <DEFINITION><ATTRIBUTE-DEFINITION-ENUMERATION-REF>AD-TYPE</ATTRIBUTE-DEFINITION-ENUMERATION-REF></DEFINITION>
+            <VALUES><ENUM-VALUE-REF>${evType(r.type)}</ENUM-VALUE-REF></VALUES>
+          </ATTRIBUTE-VALUE-ENUMERATION>
+          <ATTRIBUTE-VALUE-ENUMERATION>
+            <DEFINITION><ATTRIBUTE-DEFINITION-ENUMERATION-REF>AD-PRIO</ATTRIBUTE-DEFINITION-ENUMERATION-REF></DEFINITION>
+            <VALUES><ENUM-VALUE-REF>${evPrio(r.priority)}</ENUM-VALUE-REF></VALUES>
+          </ATTRIBUTE-VALUE-ENUMERATION>
+          <ATTRIBUTE-VALUE-STRING THE-VALUE="${esc(r.doc+' › '+r.sectionPath+' (p.'+r.page+')')}">
+            <DEFINITION><ATTRIBUTE-DEFINITION-STRING-REF>AD-SOURCE</ATTRIBUTE-DEFINITION-STRING-REF></DEFINITION>
+          </ATTRIBUTE-VALUE-STRING>
+        </VALUES>
+        <TYPE><SPEC-OBJECT-TYPE-REF>OT-REQ</SPEC-OBJECT-TYPE-REF></TYPE>
+      </SPEC-OBJECT>`;
+  }).join('\n');
+
+  // relations from approved links
+  const rels = State.links.filter(l=>State.reqs.find(r=>r.id===l.source && r.status!=='rejected'))
+    .map(l=>`      <SPEC-RELATION IDENTIFIER="${l.id.toUpperCase()}" LAST-CHANGE="${lc}">
+        <SOURCE><SPEC-OBJECT-REF>${l.source}</SPEC-OBJECT-REF></SOURCE>
+        <TARGET><SPEC-OBJECT-REF>${esc(l.target)}</SPEC-OBJECT-REF></TARGET>
+        <TYPE><SPEC-RELATION-TYPE-REF>RT-LINK</SPEC-RELATION-TYPE-REF></TYPE>
+      </SPEC-RELATION>`).join('\n');
+
+  // hierarchy
+  let shCounter=1;
+  function emitSection(node, depth){
+    let inner='';
+    for(const child of node.children.values()) inner+=emitSection(child, depth+1);
+    let reqRows='';
+    for(const r of node.reqs){ if(r.status==='rejected') continue;
+      reqRows+=`        <SPEC-HIERARCHY IDENTIFIER="SH-${String(shCounter++).padStart(4,'0')}" LAST-CHANGE="${lc}">
+          <OBJECT><SPEC-OBJECT-REF>${r.id}</SPEC-OBJECT-REF></OBJECT>
+        </SPEC-HIERARCHY>\n`;
+    }
+    if(node.title==='(document)') return reqRows+inner;
+    return reqRows+inner;
+  }
+  const hierarchy = emitSection(State.hierarchy, 0);
+
+  const xml=`<?xml version="1.0" encoding="UTF-8"?>
+<REQ-IF xmlns="http://www.omg.org/spec/ReqIF/20110401/reqif.xsd" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <THE-HEADER>
+    <REQ-IF-HEADER IDENTIFIER="${uid('HDR').toUpperCase()}">
+      <COMMENT>Generated by ReqForge — ${esc(cfg.project)} / ${esc(cfg.module)} / ${esc(cfg.schema)}</COMMENT>
+      <CREATION-TIME>${lc}</CREATION-TIME>
+      <REPOSITORY-ID>${esc(cfg.project)}</REPOSITORY-ID>
+      <REQ-IF-TOOL-ID>ReqForge DNG Converter</REQ-IF-TOOL-ID>
+      <REQ-IF-VERSION>1.0</REQ-IF-VERSION>
+      <SOURCE-TOOL-ID>ReqForge</SOURCE-TOOL-ID>
+      <TITLE>${esc(cfg.module)}</TITLE>
+    </REQ-IF-HEADER>
+  </THE-HEADER>
+  <CORE-CONTENT>
+    <REQ-IF-CONTENT>
+      <DATATYPES>
+        <DATATYPE-DEFINITION-STRING IDENTIFIER="DT-STRING" LONG-NAME="String" LAST-CHANGE="${lc}" MAX-LENGTH="4096"/>
+        <DATATYPE-DEFINITION-XHTML IDENTIFIER="DT-XHTML" LONG-NAME="XHTML" LAST-CHANGE="${lc}"/>
+        <DATATYPE-DEFINITION-ENUMERATION IDENTIFIER="DT-TYPE" LONG-NAME="Requirement Type" LAST-CHANGE="${lc}">
+          <SPECIFIED-VALUES>
+${enumVals(TYPES,evType)}
+          </SPECIFIED-VALUES>
+        </DATATYPE-DEFINITION-ENUMERATION>
+        <DATATYPE-DEFINITION-ENUMERATION IDENTIFIER="DT-PRIO" LONG-NAME="Priority" LAST-CHANGE="${lc}">
+          <SPECIFIED-VALUES>
+${enumVals(PRIOS,evPrio)}
+          </SPECIFIED-VALUES>
+        </DATATYPE-DEFINITION-ENUMERATION>
+      </DATATYPES>
+      <SPEC-TYPES>
+        <SPEC-OBJECT-TYPE IDENTIFIER="OT-REQ" LONG-NAME="Requirement" LAST-CHANGE="${lc}">
+          <SPEC-ATTRIBUTES>
+            <ATTRIBUTE-DEFINITION-STRING IDENTIFIER="AD-TITLE" LONG-NAME="Title" LAST-CHANGE="${lc}">
+              <TYPE><DATATYPE-DEFINITION-STRING-REF>DT-STRING</DATATYPE-DEFINITION-STRING-REF></TYPE>
+            </ATTRIBUTE-DEFINITION-STRING>
+            <ATTRIBUTE-DEFINITION-XHTML IDENTIFIER="AD-TEXT" LONG-NAME="Requirement Text" LAST-CHANGE="${lc}">
+              <TYPE><DATATYPE-DEFINITION-XHTML-REF>DT-XHTML</DATATYPE-DEFINITION-XHTML-REF></TYPE>
+            </ATTRIBUTE-DEFINITION-XHTML>
+            <ATTRIBUTE-DEFINITION-ENUMERATION IDENTIFIER="AD-TYPE" LONG-NAME="Requirement Type" LAST-CHANGE="${lc}" MULTI-VALUED="false">
+              <TYPE><DATATYPE-DEFINITION-ENUMERATION-REF>DT-TYPE</DATATYPE-DEFINITION-ENUMERATION-REF></TYPE>
+            </ATTRIBUTE-DEFINITION-ENUMERATION>
+            <ATTRIBUTE-DEFINITION-ENUMERATION IDENTIFIER="AD-PRIO" LONG-NAME="Priority" LAST-CHANGE="${lc}" MULTI-VALUED="false">
+              <TYPE><DATATYPE-DEFINITION-ENUMERATION-REF>DT-PRIO</DATATYPE-DEFINITION-ENUMERATION-REF></TYPE>
+            </ATTRIBUTE-DEFINITION-ENUMERATION>
+            <ATTRIBUTE-DEFINITION-STRING IDENTIFIER="AD-SOURCE" LONG-NAME="Source Traceability" LAST-CHANGE="${lc}">
+              <TYPE><DATATYPE-DEFINITION-STRING-REF>DT-STRING</DATATYPE-DEFINITION-STRING-REF></TYPE>
+            </ATTRIBUTE-DEFINITION-STRING>
+          </SPEC-ATTRIBUTES>
+        </SPEC-OBJECT-TYPE>
+        <SPECIFICATION-TYPE IDENTIFIER="ST-MODULE" LONG-NAME="${esc(cfg.module)}" LAST-CHANGE="${lc}">
+          <SPEC-ATTRIBUTES/>
+        </SPECIFICATION-TYPE>
+        <SPEC-RELATION-TYPE IDENTIFIER="RT-LINK" LONG-NAME="Traceability Link" LAST-CHANGE="${lc}">
+          <SPEC-ATTRIBUTES/>
+        </SPEC-RELATION-TYPE>
+      </SPEC-TYPES>
+      <SPEC-OBJECTS>
+${objects}
+      </SPEC-OBJECTS>
+      <SPEC-RELATIONS>
+${rels}
+      </SPEC-RELATIONS>
+      <SPECIFICATIONS>
+        <SPECIFICATION IDENTIFIER="SPEC-MODULE" LONG-NAME="${esc(cfg.module)}" LAST-CHANGE="${lc}">
+          <TYPE><SPECIFICATION-TYPE-REF>ST-MODULE</SPECIFICATION-TYPE-REF></TYPE>
+          <CHILDREN>
+${hierarchy}          </CHILDREN>
+        </SPECIFICATION>
+      </SPECIFICATIONS>
+    </REQ-IF-CONTENT>
+  </CORE-CONTENT>
+</REQ-IF>`;
+  return xml;
+}
+
+function validateReqIF(xml, reqs){
+  const issues=[];
+  let doc;
+  try{ doc=new DOMParser().parseFromString(xml,'application/xml'); }catch(e){ return {valid:false, issues:['XML parse failed']}; }
+  if(doc.querySelector('parsererror')) issues.push('Malformed XML (parser error)');
+  if(!doc.querySelector('REQ-IF-HEADER')) issues.push('Missing REQ-IF-HEADER');
+  if(!doc.querySelector('SPEC-OBJECTS')) issues.push('Missing SPEC-OBJECTS');
+  const objIds=new Set([...doc.querySelectorAll('SPEC-OBJECT')].map(o=>o.getAttribute('IDENTIFIER')));
+  // every spec-hierarchy ref resolves
+  [...doc.querySelectorAll('SPEC-HIERARCHY SPEC-OBJECT-REF')].forEach(r=>{
+    if(!objIds.has(r.textContent)) issues.push('Unresolved hierarchy ref: '+r.textContent);
+  });
+  // enum refs resolve
+  const enumIds=new Set([...doc.querySelectorAll('ENUM-VALUE')].map(e=>e.getAttribute('IDENTIFIER')));
+  [...doc.querySelectorAll('ENUM-VALUE-REF')].forEach(r=>{
+    if(!enumIds.has(r.textContent)) issues.push('Unresolved enum ref: '+r.textContent);
+  });
+  const objCount=objIds.size;
+  return {valid:issues.length===0, issues, objCount};
+}
+
+/* ============================================================
+   PIPELINE RUNNER
+   ============================================================ */
+async function runPipeline(){
+  const overlay=$('#overlay'); overlay.classList.add('show');
+  const setStep=(i,msg)=>{renderPipeline(i);$('#procStep').textContent=msg;$('#procBar').style.width=Math.round((i+1)/STAGES.length*100)+'%';};
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+
+  State.cfg={project:$('#cfgProject').value,module:$('#cfgModule').value,schema:$('#cfgSchema').value,baseline:$('#cfgBaseline').value};
+  State.baseline = State.cfg.baseline==='sample'?SAMPLE_BASELINE:[];
+
+  // gather text
+  let docs=[];
+  const pasted=$('#specInput').value.trim();
+  if(pasted) docs.push({name:'Pasted specification', text:pasted});
+  for(const f of State.files){ if(f.text) docs.push({name:f.name, text:f.text}); }
+  State.docNames=docs.map(d=>d.name);
+
+  setStep(0,'Reading documents & mapping pages…'); await wait(450);
+  let struct=[];
+  for(const d of docs) struct=struct.concat(parseDocument(d.text,d.name));
+
+  setStep(1,'Detecting shall / must / will statements…'); await wait(450);
+  const cands=extractCandidates(struct);
+
+  setStep(2,'Splitting compound · rewriting to shall-form…'); await wait(450);
+  State.reqs=normalize(cands);
+
+  setStep(3,'Classifying & scoring confidence…'); await wait(400);
+  State.reqs.forEach(classify);
+
+  setStep(4,'Reconstructing hierarchy & orphans…'); await wait(400);
+  State.hierarchy=buildHierarchy(State.reqs);
+
+  setStep(5,'Ambiguity · duplicates · conflicts · gaps…'); await wait(500);
+  validate(State.reqs);
+
+  setStep(6, State.baseline.length?'Comparing against DNG baseline…':'No baseline — skipping traceability…'); await wait(450);
+  State.links=buildTraceability(State.reqs,State.baseline);
+
+  setStep(7,'Emitting & validating ReqIF…'); await wait(500);
+  computeReadiness(State.reqs);
+  State.reqifXml=generateReqIF(State.reqs,State.cfg);
+  State.reqifValid=validateReqIF(State.reqifXml,State.reqs);
+
+  renderPipeline(STAGES.length);
+  await wait(300);
+  overlay.classList.remove('show');
+  showResults();
+}
+
+/* ============================================================
+   RENDER RESULTS
+   ============================================================ */
+function showResults(){
+  $('#setupView').style.display='none';
+  $('#resultsView').style.display='block';
+  $('#resetBtn').style.display='inline-flex';
+  $('#topTitle').textContent=State.cfg.module;
+  $('#topCrumb').textContent=`${State.cfg.project} · ${State.docNames.length} document(s) · ${State.reqs.length} requirements extracted`;
+  renderMetrics(); renderReadiness(); renderReqList(); renderTree(); renderTrace(); renderValidation(); renderReqifPeek();
+  updateTabCounts();
+}
+
+function counts(){
+  const r=State.reqs;
+  const approved=r.filter(x=>x.status==='approved').length;
+  const review=r.filter(x=>x.status==='review').length;
+  const dup=r.filter(x=>x.flags.duplicateOf.length).length;
+  const conf=r.filter(x=>x.flags.conflictsWith.length).length;
+  const amb=r.filter(x=>x.flags.ambiguous.length).length;
+  const ready=r.filter(x=>x.ready).length;
+  return {total:r.length,approved,review,dup,conf,amb,ready,links:State.links.length};
+}
+
+function renderMetrics(){
+  const c=counts();
+  const cards=[
+    ['m-blue','Documents',State.docNames.length,'uploaded'],
+    ['m-blue','Extracted',c.total,'requirements'],
+    ['m-green','Approved',c.approved,'human-reviewed'],
+    ['m-amber','Need review',c.review,'pending'],
+    ['m-violet','Ambiguous',c.amb,'flagged'],
+    ['m-dup','Duplicates',c.dup,'candidates'],
+    ['m-red','Conflicts',c.conf,'candidates'],
+    ['m-blue','Trace links',c.links,'suggested'],
+  ];
+  $('#metrics').innerHTML=cards.map(([cls,l,v,f])=>
+    `<div class="metric ${cls}"><div class="mbar"></div><div class="mlabel">${l}</div><div class="mval">${v}</div><div class="mfoot">${f}</div></div>`).join('');
+  $('#metrics').style.gridTemplateColumns='repeat(8,1fr)';
+}
+
+function renderReadiness(){
+  const c=counts();
+  const pct = c.total? Math.round(c.ready/c.total*100):0;
+  const col = pct>=80?'var(--ready)':pct>=50?'var(--review)':'var(--conflict)';
+  const circ=2*Math.PI*54;
+  const rv=State.reqifValid;
+  const reqifPill = rv? (rv.valid?`<span class="reqif-pill ok">✓ ReqIF valid · ${rv.objCount} objects</span>`:`<span class="reqif-pill warn">⚠ ${rv.issues.length} issue(s)</span>`):`<span class="reqif-pill none">Not generated</span>`;
+  $('#readiness').innerHTML=`
+    <div class="gauge">
+      <svg width="128" height="128" viewBox="0 0 128 128">
+        <circle cx="64" cy="64" r="54" fill="none" stroke="var(--line-soft)" stroke-width="12"/>
+        <circle cx="64" cy="64" r="54" fill="none" stroke="${col}" stroke-width="12" stroke-linecap="round"
+          stroke-dasharray="${circ}" stroke-dashoffset="${circ-circ*pct/100}" style="transition:stroke-dashoffset .9s ease"/>
+      </svg>
+      <div class="gtext"><div class="gnum" style="color:${col}">${pct}%</div><div class="glabel">Upload Ready</div></div>
+    </div>
+    <div class="readiness-body">
+      <h3>DNG Upload Readiness Score</h3>
+      <p>${c.ready} of ${c.total} requirements satisfy all upload criteria — statement, title, type, mandatory attributes, source traceability, valid hierarchy, no unresolved conflicts/duplicates, and ReqIF schema validation. Approve or resolve flagged items to raise the score.</p>
+      <div class="rstats">
+        <span class="rstat" style="background:var(--ready-soft);color:var(--ready)"><span class="dot" style="background:var(--ready)"></span>${c.ready} ready</span>
+        <span class="rstat" style="background:var(--review-soft);color:var(--review)"><span class="dot" style="background:var(--review)"></span>${c.total-c.ready} not ready</span>
+        <span class="rstat" style="background:var(--conflict-soft);color:var(--conflict)"><span class="dot" style="background:var(--conflict)"></span>${c.conf} conflicts</span>
+        <span class="rstat" style="background:var(--dup-soft);color:var(--dup)"><span class="dot" style="background:var(--dup)"></span>${c.dup} duplicates</span>
+      </div>
+    </div>
+    <div class="reqif-status"><div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:6px;letter-spacing:.05em;text-transform:uppercase">ReqIF status</div>${reqifPill}</div>`;
+}
+
+function flagBadges(r){
+  let b='';
+  b+=`<span class="badge type">${r.type}</span>`;
+  b+=`<span class="badge prio-${r.priority}">${r.priority}</span>`;
+  if(r.flags.ambiguous.length) b+=`<span class="badge flag-ambig">⚠ Ambiguous</span>`;
+  if(r.flags.nonTestable) b+=`<span class="badge flag-test">◇ Non-testable</span>`;
+  if(r.flags.compound) b+=`<span class="badge flag-compound">⑃ Was compound</span>`;
+  if(r.flags.duplicateOf.length) b+=`<span class="badge flag-dup">⧉ Duplicate</span>`;
+  if(r.flags.conflictsWith.length) b+=`<span class="badge flag-conflict">⚡ Conflict</span>`;
+  if(r.flags.missing.length) b+=`<span class="badge flag-missing">○ Missing ${r.flags.missing[0]}</span>`;
+  return b;
+}
+function confRing(v){
+  const pct=Math.round(v*100), col=v>=0.8?'var(--ready)':v>=0.6?'var(--review)':'var(--conflict)';
+  const c=2*Math.PI*15;
+  return `<div class="conf-ring"><svg width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="15" fill="none" stroke="var(--line-soft)" stroke-width="3.5"/><circle cx="19" cy="19" r="15" fill="none" stroke="${col}" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c-c*pct/100}"/></svg><div class="ctxt" style="color:${col}">${pct}</div></div>`;
+}
+
+function filteredReqs(){
+  let r=State.reqs;
+  if(State.filter==='review') r=r.filter(x=>x.status==='review');
+  else if(State.filter==='approved') r=r.filter(x=>x.status==='approved');
+  else if(State.filter==='flagged') r=r.filter(x=>x.flags.ambiguous.length||x.flags.duplicateOf.length||x.flags.conflictsWith.length||x.flags.nonTestable||x.flags.missing.length);
+  if(State.search){const s=State.search.toLowerCase();r=r.filter(x=>(x.text+x.id+x.sectionPath+x.title).toLowerCase().includes(s));}
+  return r;
+}
+
+function renderReqList(){
+  const list=filteredReqs();
+  if(!list.length){ $('#reqList').innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><h3>No matching requirements</h3><p>Adjust the filter or search to see requirements.</p></div>`; return; }
+  $('#reqList').innerHTML=list.map(r=>{
+    const stClass=r.status==='approved'?'approved':r.status==='rejected'?'rejected':'review';
+    return `<div class="req ${stClass}" data-id="${r.id}">
+      <div class="req-head" onclick="toggleReq('${r.id}')">
+        <span class="req-id">${r.id}</span>
+        <div class="req-main">
+          <div class="req-title">${esc(r.title)}</div>
+          <div class="req-text">${esc(r.text)}</div>
+          <div class="req-badges">${flagBadges(r)}</div>
+        </div>
+        <div class="req-conf">${confRing(r.confidence)}<span class="stat-pill ${stClass}">${r.status}</span></div>
+      </div>
+      <div class="req-detail">${detailHTML(r)}</div>
+    </div>`;
+  }).join('');
+}
+
+function detailHTML(r){
+  const findings=[];
+  r.flags.ambiguous.forEach(w=>findings.push(['ambig','⚠',`<b>Ambiguous term</b> "${esc(w)}" — replace with a measurable criterion.`]));
+  if(r.flags.nonTestable) findings.push(['test','◇',`<b>Non-testable</b> — no measurable acceptance criteria. Add a verifiable threshold.`]);
+  if(r.flags.compound) findings.push(['comp','⑃',`<b>Split from a compound statement</b> — verify atomicity against the source.`]);
+  r.flags.missing.forEach(m=>findings.push(['miss','○',`<b>Missing ${esc(m)}</b> — requirement may be incomplete.`]));
+  r.flags.duplicateOf.forEach(d=>findings.push(['dup','⧉',`<b>${d.kind} duplicate</b> of <code>${d.id}</code> (similarity ${Math.round(d.sim*100)}%).`]));
+  r.flags.conflictsWith.forEach(cf=>findings.push(['conf','⚡',`<b>Conflicts with</b> <code>${cf.id}</code> — ${esc(cf.why)}.`]));
+  if(!findings.length) findings.push(['ok','✓',`<b>No quality issues detected.</b> Meets DNG-ready criteria.`]);
+  const ficolor={ambig:'var(--ambig-soft);color:var(--ambig)',test:'#E5F0F2;color:#0E7C86',comp:'#E8EAF6;color:#4B53A8',miss:'#EFE7DD;color:#8A5A2B',dup:'var(--dup-soft);color:var(--dup)',conf:'var(--conflict-soft);color:var(--conflict)',ok:'var(--ready-soft);color:var(--ready)'};
+
+  const chk=r.readyChecklist;
+  return `
+    <div class="detail-grid">
+      <div class="compare"><h5>Original source text</h5><div class="orig">"${esc(r.original)}"</div></div>
+      <div class="compare dng"><h5>DNG-ready text (editable)</h5><textarea oninput="editText('${r.id}',this.value)">${esc(r.text)}</textarea></div>
+    </div>
+    <table class="meta-table">
+      <tr><td>Title</td><td>${esc(r.title)}</td></tr>
+      <tr><td>Type / confidence</td><td>${r.type} · ${Math.round(r.typeConf*100)}%</td></tr>
+      <tr><td>Priority</td><td>${r.priority}</td></tr>
+      <tr><td>Source document</td><td>${esc(r.doc)}</td></tr>
+      <tr><td>Source section</td><td>${esc(r.sectionPath)}</td></tr>
+      <tr><td>Source page</td><td>p. ${r.page}</td></tr>
+      <tr><td>Parent / hierarchy</td><td>${r.flags.orphan?'<span class=orphan-flag>ORPHAN — no section</span>':esc(r.parentSection||'(root)')}</td></tr>
+      <tr><td>Upload-ready</td><td>${r.ready?'<span style="color:var(--ready);font-weight:700">YES ✓</span>':'<span style="color:var(--conflict);font-weight:700">NO — '+Object.entries(chk).filter(([k,v])=>!v).map(([k])=>k).join(', ')+'</span>'}</td></tr>
+    </table>
+    <div class="findings">${findings.map(([k,ic,txt])=>`<div class="finding"><span class="fico" style="background:${ficolor[k]}">${ic}</span><span>${txt}</span></div>`).join('')}</div>
+    <div class="detail-actions">
+      <button class="btn btn-sm btn-primary" onclick="setStatus('${r.id}','approved')">✓ Approve</button>
+      <button class="btn btn-sm" onclick="setStatus('${r.id}','review')">↺ Needs review</button>
+      <button class="btn btn-sm" onclick="setStatus('${r.id}','rejected')">✕ Reject</button>
+      ${r.flags.duplicateOf.length?`<button class="btn btn-sm" onclick="mergeDup('${r.id}')">⧉ Merge duplicate</button>`:''}
+      ${r.flags.compound?`<button class="btn btn-sm" onclick="toast('Atomic split already applied during normalization')">⑃ View split</button>`:''}
+    </div>`;
+}
+
+window.toggleReq=id=>{ const el=document.querySelector(`.req[data-id="${id}"]`); el.classList.toggle('open'); };
+window.editText=(id,v)=>{ const r=State.reqs.find(x=>x.id===id); r.text=v; };
+window.setStatus=(id,st)=>{
+  const r=State.reqs.find(x=>x.id===id); r.status=st;
+  computeReadiness(State.reqs); regenReqif();
+  renderMetrics(); renderReadiness(); renderReqList(); updateTabCounts();
+  // keep card open
+  const el=document.querySelector(`.req[data-id="${id}"]`); if(el)el.classList.add('open');
+  toast(`${id} → ${st}`);
+};
+window.mergeDup=id=>{
+  const r=State.reqs.find(x=>x.id===id);
+  const dup=r.flags.duplicateOf[0];
+  setStatus(id,'rejected');
+  toast(`${id} merged into ${dup.id}`);
+};
+
+function regenReqif(){
+  State.reqifXml=generateReqIF(State.reqs,State.cfg);
+  State.reqifValid=validateReqIF(State.reqifXml,State.reqs);
+  renderReqifPeek();
+}
+
+/* hierarchy tree */
+function renderTree(){
+  const root=State.hierarchy;
+  function node(n,depth){
+    let html='';
+    for(const child of n.children.values()){
+      html+=`<div class="tnode"><div class="tsec">${child.num?`<span class="tnum">${child.num}</span>`:''}<span>${esc(child.title)}</span></div>`;
+      html+=`<div class="tchildren">${node(child,depth+1)}${child.reqs.map(reqRow).join('')}</div></div>`;
+    }
+    return html;
+  }
+  function reqRow(r){
+    return `<div class="treq" onclick="jumpToReq('${r.id}')"><span class="tid">${r.id}</span><span class="ttext">${esc(r.title)}</span>${r.flags.orphan?'<span class=orphan-flag>orphan</span>':''}</div>`;
+  }
+  let html=node(root,0);
+  if(root.reqs.length){
+    html+=`<div class="tnode"><div class="tsec"><span class="orphan-flag">ORPHANS</span><span>Requirements with no parent section</span></div><div class="tchildren">${root.reqs.map(reqRow).join('')}</div></div>`;
+  }
+  $('#tree').innerHTML=html||'<p style="color:var(--muted)">No hierarchy reconstructed.</p>';
+}
+window.jumpToReq=id=>{
+  document.querySelector('[data-tab="review"]').click();
+  State.filter='all'; $$('.chipfilter').forEach(c=>c.classList.toggle('on',c.dataset.filter==='all'));
+  State.search=''; $('#searchInput').value=''; renderReqList();
+  setTimeout(()=>{const el=document.querySelector(`.req[data-id="${id}"]`);if(el){el.classList.add('open');el.scrollIntoView({behavior:'smooth',block:'center'});}},60);
+};
+
+/* traceability */
+function renderTrace(){
+  if(!State.links.length){
+    $('#traceList').innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></svg><h3>No traceability links</h3><p>Select a DNG baseline export on the setup screen to generate cross-artifact link suggestions.</p></div>`;
+    return;
+  }
+  $('#traceList').innerHTML=State.links.map(l=>`
+    <div class="linkrow">
+      <div class="linkside"><div class="lid">${l.source}</div><div class="ltxt">${esc(l.sourceText.slice(0,90))}…</div></div>
+      <div class="linktype"><div class="lt">${l.type}</div><div class="larrow">→</div><div style="font-size:10px;color:var(--muted)">${Math.round(l.confidence*100)}% conf</div></div>
+      <div class="linkside"><div class="lid">${esc(l.target)}</div><div class="ltxt">${esc(l.targetText.slice(0,90))}…</div></div>
+      <div class="linkaction">${l.lowConf?'<span class="badge flag-missing">Manual review</span>':''}
+        <button class="btn btn-sm btn-primary" onclick="approveLink('${l.id}')">${l.status==='approved'?'✓ Approved':'Approve link'}</button>
+      </div>
+      <div class="linkexpl"><b>Why:</b> ${esc(l.explanation)}</div>
+    </div>`).join('');
+}
+window.approveLink=id=>{const l=State.links.find(x=>x.id===id);l.status='approved';renderTrace();toast('Link approved');};
+
+/* validation tab */
+function renderValidation(){
+  const groups=[
+    ['Ambiguous requirements','var(--ambig)',State.reqs.filter(r=>r.flags.ambiguous.length),r=>`uses "${r.flags.ambiguous.join('", "')}"`],
+    ['Non-testable requirements','#0E7C86',State.reqs.filter(r=>r.flags.nonTestable),r=>'lacks measurable acceptance criteria'],
+    ['Compound (split applied)','#4B53A8',State.reqs.filter(r=>r.flags.compound),r=>'derived from a multi-part statement'],
+    ['Duplicate candidates','var(--dup)',State.reqs.filter(r=>r.flags.duplicateOf.length),r=>`${r.flags.duplicateOf[0].kind} dup of ${r.flags.duplicateOf[0].id}`],
+    ['Conflicting requirements','var(--conflict)',State.reqs.filter(r=>r.flags.conflictsWith.length),r=>r.flags.conflictsWith[0].why],
+    ['Missing information','#8A5A2B',State.reqs.filter(r=>r.flags.missing.length),r=>`missing ${r.flags.missing.join(', ')}`],
+  ];
+  $('#valList').innerHTML=groups.map(([title,col,arr,desc])=>`
+    <div class="card card-pad" style="margin-bottom:14px">
+      <h2 style="display:flex;align-items:center;gap:9px"><span style="width:9px;height:9px;border-radius:50%;background:${col}"></span>${title} <span style="font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:600">(${arr.length})</span></h2>
+      ${arr.length?`<div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">${arr.map(r=>`<div style="display:flex;gap:11px;align-items:center;font-size:12.5px;padding:7px 11px;background:var(--panel-2);border-radius:8px;cursor:pointer" onclick="jumpToReq('${r.id}')"><span class="req-id">${r.id}</span><span style="flex:1;color:#3A4552">${esc(r.text.slice(0,110))}</span><span style="color:var(--muted);font-size:11.5px">${esc(desc(r))}</span></div>`).join('')}</div>`:`<p style="color:var(--muted);margin:8px 0 0;font-size:12.5px">None detected. ✓</p>`}
+    </div>`).join('');
+}
+
+function renderReqifPeek(){
+  if(!State.reqifXml){$('#reqifPeek').textContent='Run analysis to generate ReqIF.';return;}
+  const lines=State.reqifXml.split('\n').slice(0,46).join('\n');
+  let h=esc(lines)
+    .replace(/(&lt;\/?[A-Z-]+)/g,'<span class="tag">$1</span>')
+    .replace(/([A-Z-]+)=(&quot;.*?&quot;)/g,'<span class="attr">$1</span>=<span class="val">$2</span>');
+  $('#reqifPeek').innerHTML=h+'\n<span class="com">… '+(State.reqifXml.split('\n').length-46)+' more lines</span>';
+}
+
+function updateTabCounts(){
+  const c=counts();
+  $('#cntReview').textContent=c.review;
+  $('#cntTrace').textContent=c.links;
+  const valCount=State.reqs.filter(r=>r.flags.ambiguous.length||r.flags.nonTestable||r.flags.compound||r.flags.duplicateOf.length||r.flags.conflictsWith.length||r.flags.missing.length).length;
+  $('#cntVal').textContent=valCount;
+}
+
+/* ============================================================
+   EXPORTS
+   ============================================================ */
+function download(name,content,mime){
+  const blob=new Blob([content],{type:mime||'text/plain'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function csvCell(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+function exportCsv(){
+  const cols=['ID','Title','Requirement Text','Original Source Text','Type','Type Confidence','Priority','Source Document','Source Section','Source Page','Parent','Confidence','Review Status','Ready','Ambiguous','Non-Testable','Compound','Duplicate Of','Conflicts With','Missing','Trace Links','Notes'];
+  const rows=State.reqs.map(r=>[r.id,r.title,r.text,r.original,r.type,Math.round(r.typeConf*100)+'%',r.priority,r.doc,r.sectionPath,r.page,r.parentSection||'(root)',Math.round(r.confidence*100)+'%',r.status,r.ready?'Yes':'No',r.flags.ambiguous.join('; '),r.flags.nonTestable?'Yes':'',r.flags.compound?'Yes':'',r.flags.duplicateOf.map(d=>d.id).join('; '),r.flags.conflictsWith.map(c=>c.id).join('; '),r.flags.missing.join('; '),r.links.map(l=>l.type+'→'+l.target).join('; '),r.notes]);
+  const csv=[cols,...rows].map(row=>row.map(csvCell).join(',')).join('\n');
+  download('reqforge-review.csv',csv,'text/csv');toast('Review spreadsheet downloaded');
+}
+function exportJson(){
+  const out={generated:nowISO(),config:State.cfg,documents:State.docNames,
+    summary:counts(),
+    requirements:State.reqs.map(r=>({id:r.id,title:r.title,text:r.text,originalSourceText:r.original,type:r.type,typeConfidence:r.typeConf,priority:r.priority,source:{document:r.doc,section:r.sectionPath,page:r.page},parent:r.parentSection||null,confidence:r.confidence,reviewStatus:r.status,uploadReady:r.ready,readyChecklist:r.readyChecklist,validation:r.flags,links:r.links.map(l=>({target:l.target,type:l.type,confidence:l.confidence,explanation:l.explanation}))})),
+    traceabilityLinks:State.links,
+    reqif:{valid:State.reqifValid?.valid,issues:State.reqifValid?.issues}};
+  download('reqforge-requirements.json',JSON.stringify(out,null,2),'application/json');toast('JSON downloaded');
+}
+function exportReqif(){
+  regenReqif();
+  if(State.reqifValid && !State.reqifValid.valid){ toast('ReqIF has validation issues — exported anyway'); }
+  download('reqforge-export.reqif',State.reqifXml,'application/xml');toast('ReqIF downloaded');
+}
+function exportReport(){
+  const c=counts();const pct=c.total?Math.round(c.ready/c.total*100):0;
+  const rv=State.reqifValid;
+  const r=`DNG CONVERSION — EXECUTIVE SUMMARY
+${'='.repeat(52)}
+Generated        ${new Date().toLocaleString()}
+Target project   ${State.cfg.project}
+Module/template  ${State.cfg.module}
+Attribute schema ${State.cfg.schema}
+Baseline         ${State.cfg.baseline==='sample'?'Sample (8 artifacts)':'None'}
+
+CONVERSION TOTALS
+${'-'.repeat(52)}
+Documents processed ............. ${State.docNames.length}
+Requirements extracted .......... ${c.total}
+Requirements approved ........... ${c.approved}
+Requirements needing review ..... ${c.review}
+Duplicate candidates ............ ${c.dup}
+Conflict candidates ............. ${c.conf}
+Ambiguous requirements .......... ${c.amb}
+Traceability links generated .... ${c.links}
+
+DNG UPLOAD READINESS
+${'-'.repeat(52)}
+Upload-ready requirements ....... ${c.ready} / ${c.total}
+UPLOAD READINESS SCORE .......... ${pct}%
+ReqIF validation ................ ${rv?(rv.valid?'PASS ('+rv.objCount+' objects)':'FAIL — '+rv.issues.length+' issue(s)'):'n/a'}
+${rv&&!rv.valid?'  Issues:\n'+rv.issues.map(i=>'   - '+i).join('\n'):''}
+
+DOCUMENTS
+${'-'.repeat(52)}
+${State.docNames.map((d,i)=>`${i+1}. ${d}`).join('\n')}
+
+NOTE: No requirement is imported into DNG automatically. Human
+approval is required before requirement creation, modification,
+traceability creation, ReqIF export and DNG upload.
+`;
+  download('reqforge-executive-summary.txt',r,'text/plain');toast('Report downloaded');
+}
+
+/* ============================================================
+   FILE HANDLING
+   ============================================================ */
+function readFile(file){
+  return new Promise(res=>{
+    const ext=file.name.split('.').pop().toLowerCase();
+    if(['txt','md','text','csv','reqif','xml'].includes(ext)){
+      const r=new FileReader();
+      r.onload=()=>res({name:file.name,text:r.result,parsed:true});
+      r.readAsText(file);
+    } else {
+      // binary (pdf/docx) — not parsed client-side in this prototype
+      res({name:file.name,text:'',parsed:false});
+    }
+  });
+}
+async function handleFiles(files){
+  for(const f of files){
+    const info=await readFile(f);
+    State.files.push(info);
+  }
+  renderChips();
+}
+function renderChips(){
+  $('#fileChips').innerHTML=State.files.map((f,i)=>`<span class="filechip">${f.parsed?'📄':'📎'} ${esc(f.name)}${f.parsed?'':' (paste text)'}<button onclick="rmFile(${i})">×</button></span>`).join('');
+}
+window.rmFile=i=>{State.files.splice(i,1);renderChips();};
+
+/* ============================================================
+   WIRING
+   ============================================================ */
+const drop=$('#drop'),fi=$('#fileInput');
+drop.onclick=()=>fi.click();
+fi.onchange=e=>handleFiles(e.target.files);
+['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>handleFiles(e.dataTransfer.files));
+
+$('#sampleBtn').onclick=()=>{$('#specInput').value=SAMPLE_SPEC;$('#cfgBaseline').value='sample';toast('Sample loaded — click Analyze');};
+$('#clearBtn').onclick=()=>{$('#specInput').value='';State.files=[];renderChips();};
+$('#analyzeBtn').onclick=()=>{
+  if(!$('#specInput').value.trim() && !State.files.some(f=>f.parsed)){toast('Add specification text or a .txt/.md file first');return;}
+  runPipeline();
+};
+$('#resetBtn').onclick=()=>{
+  $('#resultsView').style.display='none';$('#setupView').style.display='grid';$('#resetBtn').style.display='none';
+  $('#topTitle').textContent='New Conversion';$('#topCrumb').textContent='Configure target & upload source specifications';
+  State.reqs=[];State.links=[];renderPipeline(-1);
+};
+
+$('#tabs').addEventListener('click',e=>{
+  const t=e.target.closest('.tab'); if(!t)return;
+  $$('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
+  State.tab=t.dataset.tab;
+  $$('.tabpane').forEach(p=>p.classList.add('modules-hidden'));
+  $('#tab-'+State.tab).classList.remove('modules-hidden');
+});
+$('#searchInput').addEventListener('input',e=>{State.search=e.target.value;renderReqList();});
+$$('.chipfilter').forEach(c=>c.addEventListener('click',()=>{
+  $$('.chipfilter').forEach(x=>x.classList.remove('on'));c.classList.add('on');
+  State.filter=c.dataset.filter;renderReqList();
+}));
+$('#approveAllBtn').onclick=()=>{
+  let n=0;
+  State.reqs.forEach(r=>{const clean=!r.flags.ambiguous.length&&!r.flags.nonTestable&&!r.flags.conflictsWith.length&&!r.flags.duplicateOf.some(d=>d.kind!=='semantic')&&!r.flags.missing.length;if(clean&&r.status!=='rejected'){r.status='approved';n++;}});
+  computeReadiness(State.reqs);regenReqif();renderMetrics();renderReadiness();renderReqList();updateTabCounts();
+  toast(`${n} clean requirements approved`);
+};
+$('#dlReqif').onclick=exportReqif;
+$('#dlCsv').onclick=exportCsv;
+$('#dlJson').onclick=exportJson;
+$('#dlReport').onclick=exportReport;
+</script>
+</body>
+</html>
