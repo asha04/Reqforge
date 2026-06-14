@@ -1,0 +1,17 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Node (only used by the validation harness)
+node_modules/
+
+# Local exports
+*.local.reqif
+*.local.csv
+*.local.json

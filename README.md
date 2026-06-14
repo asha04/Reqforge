@@ -1,8 +1,8 @@
 # ReqForge
 
-**DNG Requirements Conversion & ReqIF Generation Platform**
+**DNG Requirements Conversion & ReqIF Generation Platform for Automotive Specifications**
 
-ReqForge converts unstructured Word/PDF/text specifications into DOORS Next Generation (DNG)-ready requirements with traceability, hierarchy reconstruction, quality validation, and standards-compliant ReqIF 1.0 export — entirely in your browser.
+ReqForge converts unstructured Word/PDF/text specifications into DOORS Next Generation (DNG)-ready requirements for vehicle and automotive engineering, with traceability, hierarchy reconstruction, quality validation, and standards-compliant ReqIF 1.0 export — entirely in your browser. It is designed to support automotive domains such as ECU software, driver assistance, body electronics, powertrain, and functional safety requirements derived from ISO 26262-style workflows.
 
 ![Status](https://img.shields.io/badge/status-prototype-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![ReqIF](https://img.shields.io/badge/ReqIF-1.0-orange) ![No build](https://img.shields.io/badge/build-zero%20config-success)
 
@@ -44,7 +44,7 @@ python3 -m http.server 8000
 # → http://localhost:8000
 ```
 
-Then click **"Load sample specification"** → **"Analyze & convert"** to see the full pipeline run on a built-in medical-device specification (16 requirements extracted, 9 traceability links suggested, ReqIF validated).
+Then click **"Load sample specification"** → **"Analyze & convert"** to see the full pipeline run on a built-in sample specification. This prototype is ready to ingest automotive-style documents and produce artifacts suitable for DNG ingestion and ReqIF exchange.
 
 ---
 
@@ -90,6 +90,8 @@ Every requirement is rewritten to be:
 ### Classification (12 types)
 Functional · Non-Functional · Performance · Interface · Security · Safety · Compliance · Data · Operational · Constraint · Assumption · Open Question
 
+The taxonomy is intentionally broad to cover automotive requirements such as ISO 26262 functional safety, cybersecurity, reliability, diagnostics, electrical/electronic architecture, and software/hardware interfaces.
+
 Confidence scores are derived from keyword pattern matches with type-weighted scoring.
 
 ### Quality validation
@@ -102,6 +104,8 @@ Confidence scores are derived from keyword pattern matches with type-weighted sc
 
 ### Traceability (8 link types)
 When a baseline is provided: Derives From · Refines · Satisfies · Traces To · Depends On · Conflicts With · Duplicate Of · Related To. Each link carries a confidence score, an explanation, and a flag for manual review when confidence is low.
+
+Traceability is designed to support automotive system decomposition and safety-chain analysis by surfacing requirements relationships across systems, subsystems, and safety constraints.
 
 ### DNG Upload Readiness Score
 ```
